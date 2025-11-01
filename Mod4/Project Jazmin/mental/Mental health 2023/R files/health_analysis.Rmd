@@ -1,0 +1,1383 @@
+---
+title: "Global Health Analysis"
+author: "Kamau Munyori"
+date: "2023-06-04"
+output: html_document
+---
+
+# Introduction.
+The analysis looks at mental and physical health data from 2000-2019 from various sources the main one being the World Health Organization (WHO).
+
+## Task:
+Analyze health data to gain insights into current consumers health patterns globally and in Kenya to be utilized to make data driven decisions. 
+
+## Stakeholders:
+-Company founders and C-suite teams.
+-Human Resource and Mental Health Professionals.
+
+## Analysis Objectives:
+-What is the trend in global and local consumer mental and physical health?
+-How can these trends influence public and corporate strategies?
+
+## ROCCC of Data:
+A good data source is ROCCC which stands for Reliable, Original, Comprehensive, Current, and Cited.
+
+-Reliablity — High — The data comes from global population sample data sources.
+
+-Originality — LOW — Third party provider (WHO).
+
+-Comprehensive — HIGH — There are several variables summarized into between 1,700-10,980 observations for a period of over 15 years which was fairly comprehensive.
+
+-Current — MID — Data is 3 years old and may not be as relevant as there is no covid data updated to it.
+
+-Cited — HIGH — Data collected from a reliable third party that comprehensively reports its data collection process publicly.
+
+Overall, the dataset is good quality data however its recommended that an updated analysis be done on the health trends during and post-covid.
+
+# Data retrieval & cleaning:
+The process begins by retrieving the following packages from the library:
+
+```{r library}
+library('tidyverse')
+library('lubridate')
+library('ggplot2')
+library('dplyr')
+library('readxl')
+library('tidyr')
+library('janitor')
+library('skimr')
+library('sqldf')
+library('plotrix')
+library('knitr')
+library('reshape2')
+```
+
+The next step is identifying the current working directory.
+
+```{r current directory}
+getwd() 
+```
+
+Afterwards, set the working directory to simplify data calls.
+
+```{r set working directory}
+setwd("/Users/admin/Downloads/Mental health 2023./CSV") 
+```
+
+
+Last step of the data retrieval process is identifying the data and uploading them
+
+```{r reading CSV}
+dp <- read.csv("prevalence-of-depression-males-vs-females.csv")
+ax <- read.csv("prevalence-of-anxiety-disorders-males-vs-females.csv")
+bp <- read.csv("prevalence-of-bipolar-disorder-in-males-vs-females.csv")
+ed <- read.csv("prevalence-of-eating-disorders-in-males-vs-females.csv")
+sz <- read.csv("prevalence-of-schizophrenia-in-males-vs-females.csv")
+sr <- read.csv("suicide_rates_2019.csv")
+ab <- read.csv("share-with-alcohol-and-substance-use-disorders 1990-2016.csv")
+health <- read.csv("data.csv")
+rd <- read.csv("road_death_2019.csv")
+```
+
+Removed all the N/A values from the data frames
+
+```{r na values}
+ax <- na.omit(ax)
+ax <-ax[,-8]
+bp <- na.omit(bp)
+bp <-bp[,-8]
+dp <- na.omit(dp)
+dp <-dp[,-8]
+ed <- na.omit(ed)
+ed <-ed[,-8]
+sz <- na.omit(sz)
+sz <- sz[,-8]
+ab <- na.omit(ab)
+sr <- na.omit(sr)
+health <- health[,-6:-8]
+rd <- na.omit(rd)
+```
+
+Made use of the 'clean_names' function from the janitor package to ensure proper naming of variables.
+
+```{r clean names}
+ax <- clean_names(ax)
+bp <- clean_names(bp)
+dp <- clean_names(dp)
+ed <- clean_names(ed)
+sz <- clean_names(sz)
+ab <- clean_names(ab)
+sr <- clean_names(sr)
+health <- clean_names(health)
+rd <- clean_names(rd)
+```
+
+The analysis then proceeded to joining some data frames into one to ease analysis.
+
+```{r joins}
+agg <- merge(ax, bp, by = c("index","year", "entity", "code", "population_historical_estimates"))
+agg <- merge(agg, dp, by = c("index","year", "entity", "code", "population_historical_estimates"))
+agg <- merge(agg, ed, by = c("index","year", "entity", "code", "population_historical_estimates"))
+agg <- merge(agg, sz, by = c("index","year", "entity", "code", "population_historical_estimates"))
+
+remove(ax,bp,dp,ed,sz)
+```
+
+Some columns in datasets were renamed to ease analysis.
+
+```{r renaming}
+agg <- agg %>% 
+  rename(country = entity)
+
+ab <- ab %>% 
+  rename(country = entity)
+```
+
+The suicide data was summarized to also ease analysis.
+
+```{r summarizing}
+su.r <- sr %>% 
+  group_by(continent, code, country, year, sex) %>% 
+  summarise(suicide_rate = sum(suicide_rate)) %>% 
+  arrange(continent, code, country, year, sex)
+```
+
+The newly joined dataset was slightly transformed to improve analysis.
+
+```{r transformation}
+agg <- agg %>% 
+  mutate(prevalence_anxiety_disorders_sex_both = (prevalence_anxiety_disorders_sex_male_age_age_standardized_percent + prevalence_anxiety_disorders_sex_female_age_age_standardized_percent)
+         , prevalence_bipolar_disorder_both = (prevalence_bipolar_disorder_sex_male_age_age_standardized_percent + prevalence_bipolar_disorder_sex_female_age_age_standardized_percent)
+         , prevalence_depressive_disorders_both = (prevalence_depressive_disorders_sex_male_age_age_standardized_percent + prevalence_depressive_disorders_sex_female_age_age_standardized_percent)
+         , prevalence_eating_disorders_both = (prevalence_eating_disorders_sex_male_age_age_standardized_percent + prevalence_eating_disorders_sex_female_age_age_standardized_percent)
+         , prevalence_schizophrenia_both = (prevalence_schizophrenia_sex_male_age_age_standardized_percent + prevalence_schizophrenia_sex_female_age_age_standardized_percent)) %>% 
+  relocate(prevalence_anxiety_disorders_sex_both, .after = prevalence_anxiety_disorders_sex_female_age_age_standardized_percent) %>% 
+  relocate(prevalence_bipolar_disorder_both, .after = prevalence_bipolar_disorder_sex_female_age_age_standardized_percent) %>% 
+  relocate(prevalence_depressive_disorders_both, .after = prevalence_depressive_disorders_sex_female_age_age_standardized_percent) %>% 
+  relocate(prevalence_eating_disorders_both, .after = prevalence_eating_disorders_sex_female_age_age_standardized_percent) %>% 
+  relocate(prevalence_schizophrenia_both, .after = prevalence_schizophrenia_sex_female_age_age_standardized_percent)
+```
+
+# Descriptive statistics analysis
+An analysis of the Structure & composition of summarized data was done and indicated the number of rows and columns while also displaying the variable type in the columns.
+
+```{r structure}
+str(agg)
+str(su.r)
+str(rd)
+str(health)
+```
+
+The analysis proceeded to finding out the number of unique participants in the data.
+
+```{r unique}
+n_distinct(agg$code) 
+n_distinct(su.r$country)
+n_distinct(health$countries)
+n_distinct(rd$country)
+```
+
+Finally a summary of the data for the data frames were conducted.
+
+```{r summary}
+summary(agg)
+summary(su.r)
+summary(rd)
+summary(health)
+```
+
+#Visualizig the data.
+# Population stats.
+## Determining the Global population.
+The global average population has been on the rise constantly since the 1990s.
+
+```{r Global population, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(pop = mean(population_historical_estimates)/1000000) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = pop)) + 
+  geom_line(color = "maroon") + 
+  labs(x="Year",y="Population",
+       title = "Global Average Population")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Kenyan Average Population.
+The average population in kenya has also constantly been on the rise since 1990. This indicates an increase in available labour however a look into the age distribution of the population will determine the true labour productivity of the population.
+
+```{r Kenyan population, echo=FALSE}
+agg %>% 
+  filter(country == "Kenya") %>% 
+  group_by(year) %>% 
+  summarize(pop = mean(population_historical_estimates)/1000000) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = pop)) + 
+  geom_line(color = "blue") + 
+  labs(x="Year",y="Population",
+       title = "Kenyan Average Population")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+# Suicide stats.
+## A look into suicide rates globally in 2016.
+The average global suicide rates have been significantly higher for males compared to females in 2019.
+
+```{r global suicide rates, echo=FALSE}
+su.r %>% 
+  filter(year == 2019) %>% 
+  group_by(sex) %>% 
+  summarize(sr = mean(suicide_rate)) %>% 
+  arrange(sex) %>% 
+  ggplot() + 
+  geom_col(mapping = aes(x = sex, y = sr), color = "magenta", fill = "blue") + 
+  labs(x="Biological Gender",y="Suicide Rates",
+       title = "Average suicide rates in 2019")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining Global Vs Kenyan Average Suicide Rates From 2000-2019.
+The latest suicide rates reported indicate that Kenya possesses a higher average suicide rate than the global average for both males and females, moreover, males have a higher margin of suicide rates than females.
+
+
+```{r global vs. kenya suicide rates, echo=FALSE}
+su.kenya <- su.r %>% 
+  filter(year == 2019, country == "Kenya") %>% 
+  group_by(sex) %>% 
+  summarize(sr.k = mean(suicide_rate)) %>% 
+  arrange(sex)
+
+x <- su.r %>% 
+  filter(year == 2019) %>% 
+  group_by(sex) %>% 
+  summarize(sr = mean(suicide_rate)) %>% 
+  arrange(sex)
+
+su.kenya <- merge(su.kenya, x, by = "sex")
+
+ggplot(su.kenya, aes(x = sex)) + 
+  geom_bar(mapping = aes(y=sr.k), stat="identity"
+           , position="stack", alpha=.8, fill='red'
+           , color='red') + 
+  geom_bar(mapping = aes(y=sr), stat="identity"
+           , position ="stack", alpha=.8, fill="green"
+           , color='green') +
+  labs(x="Biological Gender",y="Suicide Rates"
+       , title = "Average Suicide Rates Globally Vs. In Kenya In 2019") +
+  theme(plot.title = element_text(hjust = 0.5, face="bold")) 
+```
+
+## Determining Global Average Suicide Rates From 2000-2016.
+### Both sexes.
+Global suicide rates have been falling significantly since the 1990s.
+
+```{r global suicide rate, echo=FALSE}
+su.r %>% 
+  group_by(year, sex) %>% 
+  filter(sex == "Both sexes") %>% 
+  summarize(sr = mean(suicide_rate)) %>% 
+  arrange(year, sex) %>% 
+  ggplot(mapping = aes(x = year, y = sr)) + 
+  geom_line(aes(color = sex)) + 
+  labs(x="Year",y="Suicide Rates",
+       title = "Global Average Suicide Rates From 2000-2019")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+Global suicide rates have been dropping for both sexes however the margin of decrease between men has been significantly higher than for women.
+
+```{r global suicide mvf, echo=FALSE}
+su.r %>% 
+  group_by(year, sex) %>% 
+  filter(sex != "Both sexes") %>% 
+  summarize(sr = mean(suicide_rate)) %>% 
+  arrange(year, sex) %>% 
+  ggplot(mapping = aes(x = year, y = sr)) + 
+  geom_line(aes(color = sex)) + 
+  labs(x="Year",y="Suicide Rates",
+       title = "Global Average Suicide Rates From 2000-2019")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining Kenyan Average Suicide Rates From 2000-2016
+### Both sexes
+The Kenyan average suicide rates have dropped significantly since 1990 however the suicide rates have consistently risen since 2016
+
+```{r kenyan suicide, echo=FALSE}
+su.r %>% 
+  filter(country == "Kenya", sex == "Both sexes") %>% 
+  group_by(year, sex) %>% 
+  summarize(sr = mean(suicide_rate)) %>% 
+  arrange(year, sex) %>% 
+  ggplot(mapping = aes(x = year, y = sr)) + 
+  geom_line(aes(color = sex)) + 
+  labs(x="Year",y="Suicide Rates",
+       title = "Kenyan Average Suicide Rates From 2000-2019")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+Kenyan suicide rates have been dropping for both sexes since 1990 however because the male suicide rates are significantly higher the margin of decrease for males has been significantly higher than for women while there is a significant increase since 2016 observed for both genders especially males as expected.
+
+```{r kenyan suicide mvf, echo=FALSE}
+su.r %>% 
+  filter(country == "Kenya", sex != "Both sexes") %>% 
+  group_by(year, sex) %>% 
+  summarize(sr = mean(suicide_rate)) %>% 
+  arrange(year, sex) %>% 
+  ggplot(mapping = aes(x = year, y = sr)) + 
+  geom_line(aes(color = sex)) + 
+  labs(x="Year",y="Suicide Rates",
+       title = "Kenyan Average Suicide Rates From 2000-2019")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+
+# Death Stats
+## Determining the global probability of dying between age 30 and exact age 70 from any of cardiovascular disease, cancer, diabetes or chronic respiratory disease
+### Aggregated.
+Global average probability of death from critical diseases has been falling significantly since the 2000s.
+
+```{r death agg, echo=FALSE}
+health %>% 
+  group_by(year) %>% 
+  summarize(prob = mean(probability_of_dying_between_age_30_and_exact_age_70_from_any_of_cardiovascular_disease_cancer_diabetes_or_chronic_respiratory_disease_both)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = prob)) + 
+  geom_line(color = "red") + 
+  labs(x="Year",y="Probability Of Dying",
+       title = "Global Average Probability Of Dying Between 30-70 Years")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+There has been a significantly higher probability of death for males than females however there has been a drop in the probability of death for both sexes.
+
+```{r death mvf, echo=FALSE}
+health %>% 
+  group_by(year) %>% 
+  summarize(probm = mean(probability_of_dying_between_age_30_and_exact_age_70_from_any_of_cardiovascular_disease_cancer_diabetes_or_chronic_respiratory_disease_male)
+            , probf = mean(probability_of_dying_between_age_30_and_exact_age_70_from_any_of_cardiovascular_disease_cancer_diabetes_or_chronic_respiratory_disease_female)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = probm), color = "blue") + 
+  geom_line(mapping = aes(x = year, y = probf), color = "green") +
+  labs(x="Year",y="Probability Of Dying",
+       title = "Global Average Probability Of Dying Between 30-70 Years")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Kenyan probability of dying between age 30 and exact age 70 from any of cardiovascular disease, cancer, diabetes or chronic respiratory disease.
+### Aggregated.
+The probability of death from the stated diseases in Kenya has been staggered since 2000 however the probability has dropped since 2008 till 2016 thereafter a slight increase was observed after 2017.
+
+```{r ke death agg, echo=FALSE}
+health %>% 
+  filter(countries == "Kenya") %>% 
+  group_by(year) %>% 
+  summarize(prob = mean(probability_of_dying_between_age_30_and_exact_age_70_from_any_of_cardiovascular_disease_cancer_diabetes_or_chronic_respiratory_disease_both)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = prob)) + 
+  geom_line(color = "blue") + 
+  labs(x="Year",y="Probability Of Dying",
+       title = "Kenyan Average Probability Of Dying Between 30-70 Yrs")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+As expected there was a staggered trend in the probability of death from the stated diseases in Kenya however there was a significantly higher number of men dying than women.
+
+```{r ke death mvf, echo=FALSE}
+health %>% 
+  filter(countries == "Kenya") %>%
+  group_by(year) %>% 
+  summarize(probm = mean(probability_of_dying_between_age_30_and_exact_age_70_from_any_of_cardiovascular_disease_cancer_diabetes_or_chronic_respiratory_disease_male)
+            , probf = mean(probability_of_dying_between_age_30_and_exact_age_70_from_any_of_cardiovascular_disease_cancer_diabetes_or_chronic_respiratory_disease_female)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = probm), color = "blue") + 
+  geom_line(mapping = aes(x = year, y = probf), color = "green") +
+  labs(x="Year",y="Probability Of Dying",
+       title = "Kenyan Average Probability Of Dying Between 30-70 Years")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+# Alcohol prevalence stats.
+## Determining the global prevalence alcohol and substance use disorders.
+The prevalence of alcohol and substance use disorder was observed to increase from the 90s to 2000 however a significant decline was observed froom 2000-2010 thereafter a significant increase was observed till 2019 with Russia having the highest prevalence globally
+
+```{r global prevalence, echo=FALSE}
+ab %>% 
+  group_by(year) %>% 
+  summarize(prev = mean(prevalence_alcohol_and_substance_use_disorders_both_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = prev)) + 
+  geom_line(color = "red") + 
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Alcohol & Substance Use Disorders")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Kenyan prevalence alcohol and substance use disorders.
+The Kenyan average alcohol prevalence also increased significantly since 1990 till 2000 where there was only a slight increase till 2005 where a decrease was observed till 2010 and there was an sharp increase there after since 2010 just as observed with the global trend.
+
+```{r kenyan prevalence, echo=FALSE}
+ab %>% 
+  filter(country == "Kenya") %>% 
+  group_by(year) %>% 
+  summarize(prev = mean(prevalence_alcohol_and_substance_use_disorders_both_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = prev)) + 
+  geom_line(color = "blue") + 
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Average Prevalence Of Alcohol & Substance Use Disorders")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+# Anxiety stats.
+## Determining the Global prevalence of anxiety disorder.
+The global average prevalence of anxiety disorders have been on a consistent rise since 1990.
+
+```{r global anxiety, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(ad = mean(prevalence_anxiety_disorders_sex_both)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = ad), color = "red") + 
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Anxiety Disorders")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+
+### Males.
+The global average prevalence of anxiety disorders in males has been on a consistent rise since 1990.
+
+```{r global anxiety m, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(adm = mean(prevalence_anxiety_disorders_sex_male_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = adm), color = "blue")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Anxiety Disorders (males)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Females.
+The global average prevalence of anxiety disorders in females has similarly been on a consistent rise since 1990.
+
+```{r global anxiety f, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(adf = mean(prevalence_anxiety_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = adf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Anxiety Disorders in (females)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+There is a singificant margin between the prevalence of anxiety disorders between the sexes with the prevalence being higher among females than males.
+
+```{r global anxiety mvf, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(adm = mean(prevalence_anxiety_disorders_sex_male_age_age_standardized_percent)
+            ,adf = mean(prevalence_anxiety_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = adm), color = "blue")+
+  geom_line(mapping = aes(x = year, y = adf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Anxiety Disorders")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Kenyan prevalence of anxiety disorders.
+The Kenyan average prevalence of anxiety disorder has been on a consistent rise from 1990 to 2017 where a decrease is being observed until 2019.
+
+```{r ke anxiety agg, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(ad = mean(prevalence_anxiety_disorders_sex_both)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = ad)) + 
+  geom_line(color = "red") + 
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Average Prevalence Of Anxiety Disorders")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males.
+The kenyan average prevalence of anxiety disorders in males has been increasing significantly since 1990 and coincidentally only dropped from 2006-2009 but has risen significantly ever since.
+
+```{r ke anxiety m, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(adm = mean(prevalence_anxiety_disorders_sex_male_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = adm), color = "blue")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Mean Prevalence Of Anxiety Disorders (males)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Females.
+The Kenyan average prevalence of anxiety disorders in females has been staggered over the years however a significant dip has been observed from 2000-2005 which were the highest average prevalent anxiety disorders years for males. The decrease in anxiety disorders reported only decreased for females from 2017 to 2019.
+
+```{r ke anxiety f, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(adf = mean(prevalence_anxiety_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = adf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Mean Prevalence Of Anxiety Disorders (females)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+Although the anxiety disorders prevalence levels for females has been dropping in the recent years there are still significantly higher levels of reported anxiety disorders in females compared to males.
+
+```{r ke anxiety mvf, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(adm = mean(prevalence_anxiety_disorders_sex_male_age_age_standardized_percent)
+            ,adf = mean(prevalence_anxiety_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = adm), color = "blue")+
+  geom_line(mapping = aes(x = year, y = adf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Average Prevalence Of Anxiety Disorders (M Vs. F)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Global prevalence of bipolar disorder.
+### Aggregated.
+The global average prevalence of bipolar disorder rising significantly since 1990.
+
+```{r global bipolar agg, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(bp = mean(prevalence_bipolar_disorder_both)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = bp)) + 
+  geom_line(color = "red") + 
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Bipolar Disorder")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males.
+The global average prevalence of bipolar disorder in males has risen since 1990 as expected.
+
+```{r global bipolar m, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(bpm = mean(prevalence_bipolar_disorder_sex_male_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = bpm), color = "blue")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Bipolar Disorder (males)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Females.
+The global average prevalence of bipolar disorder in females has risen since 1990 as expected showing a similar trand to the rise in bipolar disorder in males.
+
+```{r global bipolar f, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(bpf = mean(prevalence_bipolar_disorder_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = bpf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Bipolar Disorder (females)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+The levels of reported bipolar disorder in females has been significantly higher compared to males.
+
+```{r global bipolar mvf, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(bpm = mean(prevalence_bipolar_disorder_sex_male_age_age_standardized_percent)
+            ,bpf = mean(prevalence_bipolar_disorder_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = bpm), color = "blue")+
+  geom_line(mapping = aes(x = year, y = bpf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Bipolar Disorder (M Vs. F)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Kenyan prevalence of bipolar disorders.
+### Aggregated.
+Bipolar disorder prevalence in Kenya has been rising steadily from 1990 to 2000 thereafter an exponential growth in prevalence was observed from 2000-2015 where a plateau trend was observed.
+
+```{r ke bipolar agg, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(ad = mean(prevalence_bipolar_disorder_both)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = ad)) + 
+  geom_line(color = "red") + 
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Average Prevalence Of Bipolar Disorder")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males.
+The bipolar disorder prevalence pattern has shown the same trend as the kenyan aggregated prevalence analysis patten with a plateau has been observed in the recent years however the male only data shows that the decrease has been more significant than the female prevalence decrease since 2015.
+
+```{r ke bipolar m, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(bpm = mean(prevalence_bipolar_disorder_sex_male_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = bpm), color = "blue")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Average Prevalence Of Bipolar Disorder (males)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Females.
+The bipolar disorder prevalence pattern has shown the same trend as the kenyan aggregated prevalence analysis patten with a plateau has been observed in the recent years.
+
+
+```{r ke bipolar f, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(bpf = mean(prevalence_bipolar_disorder_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = bpf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Mean Prevalence Of Bipolar Disorder (females)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+Unlike the global bipolar prevalence data, the Kenyan analysis shows that bipolar disorder is more prevalent in males than females however the prevalence margin is significantly smaller locally than globally.
+
+```{r ke bipolar mvf, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(bpm = mean(prevalence_bipolar_disorder_sex_male_age_age_standardized_percent)
+            ,bpf = mean(prevalence_bipolar_disorder_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = bpm), color = "blue")+
+  geom_line(mapping = aes(x = year, y = bpf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Mean Prevalence Of Bipolar Disorder (M Vs. F)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Global prevalence of depressive disorders.
+### Aggregated.
+The global depressive disorders prevalence has seen a significant decrease since 2000 till 2017 where there was a significant increase till 2019.
+
+```{r global depressive agg, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(dep = mean(prevalence_depressive_disorders_both)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = dep)) + 
+  geom_line(color = "red") + 
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Depressive Disorders")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males.
+The global depressive disorders prevalence in males similarly to the aggregated data has seen a significant decrease since 2000 till 2017 where there was a more significant increase till 2019.
+
+```{r global depressive m, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(depm = mean(prevalence_depressive_disorders_sex_male_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = depm), color = "blue")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Depressive Disorders (Males)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Females.
+The global depressive disorder prevalence in males similarly to the aggregated data has seen a significant decrease since 2000 till 2017 where there was a less steep rise till 2019.
+
+```{r global depressive f, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarise(depf = mean(prevalence_depressive_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = depf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Mean Prevalence Of Depressive Disorders (Females)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+There has been a significantly higher reported prevalence of depressive disorders in females than in males globally.
+
+```{r global depressive mvf, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(depm = mean(prevalence_depressive_disorders_sex_male_age_age_standardized_percent)
+            ,depf = mean(prevalence_depressive_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = depm), color = "blue")+
+  geom_line(mapping = aes(x = year, y = depf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Depressive Disorders (M Vs. F)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Kenyan prevalence of depressive disorders.
+### Aggregated.
+The Kenyan depressive disorder prevalence similarly to the global deppressive prevalence data has seen a significant decrease since 2000 till 2017 where there was a slight increase till 2019.
+
+```{r ke depressive agg, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(ad = mean(prevalence_depressive_disorders_both)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = ad)) + 
+  geom_line(color = "red") + 
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Depressive Disorders")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males.
+The Kenyan depressive disorders prevalence in males similarly to the Kenyan deppressive prevalence aggregated data has seen a significant decrease since 2000 till 2017 where there was a slight increase till 2019.
+
+```{r ke depressive m, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(depm = mean(prevalence_depressive_disorders_sex_male_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = depm), color = "blue")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Average Prevalence Of Depressive Disorders (Males)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Females.
+The Kenyan depressive disorders prevalence in females similarly to the Kenyan deppressive prevalence aggregated data has seen a significant decrease since 2000 till 2017 where there was a slight increase till 2019.
+
+```{r ke depressive f, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarise(depf = mean(prevalence_depressive_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = depf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Mean Prevalence Of Depressive Disorders (Females)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females
+There has been a significantly higher reported Kenyan prevalence of depressive disorders in females than in males however the prevalence margin between the sexes is higher in Kenya than globally.
+
+```{r ke depressive mvf, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(depm = mean(prevalence_depressive_disorders_sex_male_age_age_standardized_percent)
+            ,depf = mean(prevalence_depressive_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = depm), color = "blue")+
+  geom_line(mapping = aes(x = year, y = depf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Mean Prevalence Of Depressive Disorders (M Vs. F)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Global prevalence of eating disorders.
+### Aggregated.
+The global average prevalence of eating disorders has been rising significantly since 1990.
+
+```{r global eating disorders agg, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(ad = mean(prevalence_eating_disorders_both)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = ad)) + 
+  geom_line(color = "red") + 
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Eating Disorders")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males.
+The global average prevalence of eating disorders in males has also been rising significantly since 1990.
+
+```{r global eating disorders m, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(edm = mean(prevalence_eating_disorders_sex_male_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = edm), color = "blue")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Eating Disorders (Male)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Females.
+The global average prevalence of eating disorders in females has similarly been rising significantly since 1990.
+
+```{r global eating disorders f, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(edf = mean(prevalence_eating_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = edf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Mean Prevalence Of Eating Disorders (Female)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+There has been a significantly higher reported prevalence of eating disorders in females than in males globally.
+
+```{r global eating disorders mvf, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(edm = mean(prevalence_eating_disorders_sex_male_age_age_standardized_percent)
+            ,edf = mean(prevalence_eating_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = edm), color = "blue")+
+  geom_line(mapping = aes(x = year, y = edf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Mean Prevalence Of Eating Disorders (M Vs. F)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Kenyan prevalence of eating disorders
+### Aggregated.
+In contradiction to the global eating disorder pattern the prevalence of the disorder in Kenya has been decreasing significantly since 1990 till 2004 where a significant rise has been observed till 2019.
+
+```{r ke eating disorders agg, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(ed = mean(prevalence_eating_disorders_both)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = ed)) + 
+  geom_line(color = "red") + 
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Average Prevalence Of Eating Disorders")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males.
+As expected, the prevalence of the disorders amongst males in Kenya has been decreasing significantly since 1990 till 2004 where a significant rise has been observed till 2019. 
+
+```{r ke eating disorders m, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(edm = mean(prevalence_eating_disorders_sex_male_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = edm), color = "blue")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Average Prevalence Of Eating Disorder (Male)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Females.
+Similarly, the prevalence of the disorders amongst females in Kenya has also been decreasing significantly since 1990 till 2004 where a significant rise has been observed till 2019.
+
+```{r ke eating disorders f, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(edf = mean(prevalence_eating_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = edf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Mean Prevalence Of Eating Disorders (Female)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+There has been a significantly higher reported prevalence of eating disorders in females than in males globally however the marginal difference is smaller than the global prevalence margin between males and females.
+
+```{r ke eating disorders mvf, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(edm = mean(prevalence_eating_disorders_sex_male_age_age_standardized_percent)
+            ,edf = mean(prevalence_eating_disorders_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = edm), color = "blue")+
+  geom_line(mapping = aes(x = year, y = edf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Mean Prevalence Of Eating Disorders (M Vs. F)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Global prevalence of Schizophrenia.
+### Aggregated.
+The global average prevalence of schizophrenia has been rising significantly since 1990.
+
+```{r global Schizophrenia agg, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(sch = mean(prevalence_schizophrenia_both)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = sch)) + 
+  geom_line(color = "red") + 
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Schizophrenia")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males.
+As expected, the global average prevalence of schizophrenia in males risen significantly since 1990.
+
+```{r global Schizophrenia m, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(schm = mean(prevalence_schizophrenia_sex_male_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = schm), color = "blue")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Average Prevalence Of Schizophrenia (Male)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Females.
+Similarly, the global average prevalence of schizophrenia in females risen significantly since 1990.
+
+
+```{r global Schizophrenia f, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(schf = mean(prevalence_schizophrenia_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = schf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Mean Prevalence Of Schizophrenia (Female)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+There has been a significantly higher average prevalence of reported cases of schizophrenia in males compared to females.
+
+```{r global Schizophrenia mvf, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  summarize(schm = mean(prevalence_schizophrenia_sex_male_age_age_standardized_percent)
+            ,schf = mean(prevalence_schizophrenia_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = schm), color = "blue")+
+  geom_line(mapping = aes(x = year, y = schf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Global Mean Prevalence Of Schizophrenia (M Vs. F)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Kenyan prevalence of Schizophrenia.
+### Aggregated.
+The prevalence of schizophrenia has been increasing in a staggered but consistent pattern since 1990.
+
+```{r ke Schizophrenia agg, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(ad = mean(prevalence_schizophrenia_both)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = ad)) + 
+  geom_line(color = "green") + 
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Average Prevalence Of Schizophrenia")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males.
+The Kenyan prevalence of schizophrenia in males has been increasing in a staggered but consistent pattern since 1990. A notable observation is the sharp rise from 2000.
+
+```{r ke Schizophrenia m, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(schm = mean(prevalence_schizophrenia_sex_male_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = schm), color = "blue")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Average Prevalence Of Schizophrenia (Male)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Females.
+The Kenyan prevalence of schizophrenia in females has also been increasing in a staggered but consistent pattern since 1990. A notable observation is the steadier rise from 2000 as opposed to the sharp rise for the prevalence in males.
+
+```{r ke Schizophrenia f, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(schf = mean(prevalence_schizophrenia_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = schf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Mean Prevalence Of Schizophrenia (Female)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+### Males Vs. Females.
+There has also been a significantly higher average prevalence of reported cases of schizophrenia in males compared to females however the prevalence margin between the two sexes are lower in Kenya compared to globally.
+
+```{r ke Schizophrenia mvf, echo=FALSE}
+agg %>% 
+  group_by(year) %>% 
+  filter(country == "Kenya") %>% 
+  summarize(schm = mean(prevalence_schizophrenia_sex_male_age_age_standardized_percent)
+            ,schf = mean(prevalence_schizophrenia_sex_female_age_age_standardized_percent)) %>% 
+  arrange(year) %>% 
+  ggplot() + 
+  geom_line(mapping = aes(x = year, y = schm), color = "blue")+
+  geom_line(mapping = aes(x = year, y = schf), color = "green")+
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Mean Prevalence Of Schizophrenia (M Vs. F)")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Global Average Road Accident Death Rate.
+The global mean death by road accident had been staggeringly steady from 2000-2007 however there was a sharp decline observed over the next 7 years afterwhich there were more minute rises and falls till 2019. 
+
+```{r global road accidents, echo=FALSE}
+rd %>% 
+  group_by(year) %>% 
+  summarize(dr = mean(road_traffic_death_rate)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = dr)) + 
+  geom_line(color = "red") + 
+  labs(x="Year",y="Death Rate",
+       title = "Global Average Road Accident Death Rate")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## Determining the Kenyan Average Road Accident Death Rate.
+Contrary to the global road death accident prevalence pattern, the death rate has been observed to increase from 2010 to 2019.
+
+```{r ke road accidents, echo=FALSE}
+rd %>% 
+  filter(country == "Kenya") %>% 
+  group_by(year) %>% 
+  summarize(dr = mean(road_traffic_death_rate)) %>% 
+  arrange(year) %>% 
+  ggplot(mapping = aes(x = year, y = dr)) + 
+  geom_line(color = "blue") + 
+  labs(x="Year",y="Prevalence",
+       title = "Kenyan Average Road Accident Death Rate")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+#Health variable correlation.
+This began by aggregating all of the health variables in the analysis as follows.
+
+```{r health data var}
+hagg <- merge(ab, agg, by = c("country", "year", "code"))
+
+health <- health %>% 
+  rename(country = countries)
+
+hagg <- merge(hagg, health, by = c("country", "year"))
+
+hagg <- merge(hagg, su.r, by = c("country", "year", "code"))
+
+hagg <- merge(hagg, rd, by = c("country", "year", "code"))
+```
+
+The analysis then proceeded to remove any unnecessary or excess data.
+
+```{r health data var refining}
+## Removing unnecessary variables from data frame.
+hagg <- hagg[,-28]
+hagg <- hagg[,-25:-26]
+hagg <- hagg [,-5]
+
+## Removing excessive variables including non-numerical variables.
+nhagg <- hagg[,-1:-3]
+nhagg <- nhagg[,-2:-4]
+nhagg <- nhagg[,-3:-4]
+nhagg <- nhagg[,-4:-5]
+nhagg <- nhagg[,-5:-6]
+nhagg <- nhagg[,-6:-7]
+nhagg <- nhagg[,-8:-9]
+```
+
+Thereafter the health variables were renamed in order to fit properly on the heat map.
+
+```{r health data var renaming}
+nhagg <- nhagg %>% 
+  rename(aldis = prevalence_alcohol_and_substance_use_disorders_both_age_standardized_percent) %>% 
+  rename(andis = prevalence_anxiety_disorders_sex_both) %>% 
+  rename(bidis = prevalence_bipolar_disorder_both) %>% 
+  rename(depdis = prevalence_depressive_disorders_both) %>% 
+  rename(eddis = prevalence_eating_disorders_both) %>% 
+  rename(schdis = prevalence_schizophrenia_both) %>% 
+  rename(dydis = probability_of_dying_between_age_30_and_exact_age_70_from_any_of_cardiovascular_disease_cancer_diabetes_or_chronic_respiratory_disease_both) %>% 
+  rename(sui = suicide_rate) %>% 
+  rename(rdth = road_traffic_death_rate)
+```
+
+The correlations of the variables with each other were calculated.
+
+```{r health data var corr calc}
+corhagg <- round(cor(nhagg),2)
+head(corhagg)
+```
+
+The correlation matrix was then created.
+
+```{r health data var corr matrix}
+melted_corhagg <- melt(corhagg)
+head(melted_corhagg)
+```
+
+The heat map was created to visualize the correlations
+
+```{r health data var corr heat map rough}
+ggplot(melted_corhagg, aes(Var2, Var1, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1))+
+  coord_fixed() +
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 3) 
+```
+
+The heat map was then refined to be more visually appealing.
+
+```{r health data var corr heat map clean}
+# Get lower triangle of the correlation matrix
+get_lower_tri<-function(corhagg){
+  corhagg[upper.tri(corhagg)] <- NA
+  return(corhagg)
+}
+
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(corhagg){
+  corhagg[lower.tri(corhagg)]<- NA
+  return(corhagg)
+}
+
+upper_tri <- get_upper_tri(corhagg)
+upper_tri
+
+# Melt the correlation matrix
+melted_corhagg_u <- melt(upper_tri, na.rm = TRUE)
+
+# Create a correlation Heat map
+ggplot(melted_corhagg_u, aes(Var2, Var1, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1))+
+  coord_fixed()+
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 3) +
+  labs(title = "Global Correlation Heat Map Of Health Variables")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold")) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    axis.ticks = element_blank(),
+    legend.justification = c(1, 0),
+    legend.position = c(0.6, 0.7),
+    legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                               title.position = "top", title.hjust = 0.5))
+```
+
+The analysis went further and created a correlation heat map of variables in Kenya.
+
+```{r health data corr heat map Kenya}
+khagg <- hagg %>% 
+  filter(country == "Kenya")
+
+## Removing excessive variables including non-numerical variables.
+knhagg <- khagg[,-1:-3]
+knhagg <- knhagg[,-2:-4]
+knhagg <- knhagg[,-3:-4]
+knhagg <- knhagg[,-4:-5]
+knhagg <- knhagg[,-5:-6]
+knhagg <- knhagg[,-6:-7]
+knhagg <- knhagg[,-8:-9]
+
+## Renaming the variables to short forms.
+knhagg <- knhagg %>% 
+  rename(aldis = prevalence_alcohol_and_substance_use_disorders_both_age_standardized_percent) %>% 
+  rename(andis = prevalence_anxiety_disorders_sex_both) %>% 
+  rename(bidis = prevalence_bipolar_disorder_both) %>% 
+  rename(depdis = prevalence_depressive_disorders_both) %>% 
+  rename(eddis = prevalence_eating_disorders_both) %>% 
+  rename(schdis = prevalence_schizophrenia_both) %>% 
+  rename(dydis = probability_of_dying_between_age_30_and_exact_age_70_from_any_of_cardiovascular_disease_cancer_diabetes_or_chronic_respiratory_disease_both) %>% 
+  rename(sui = suicide_rate) %>% 
+  rename(rdth = road_traffic_death_rate)
+
+## Finding the correlations between variables and rounding off to the nearest 2 dp.
+corkhagg <- round(cor(knhagg),2)
+head(corkhagg)
+
+
+## Create the correlation heat matrix by melting the correlations.
+melted_corkhagg <- melt(corkhagg)
+head(melted_corkhagg)
+
+# Create a heat map.
+ggplot(melted_corkhagg, aes(Var2, Var1, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1))+
+  coord_fixed() +
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) 
+
+# Get lower triangle of the correlation matrix
+get_lower_tri_k <-function(corkhagg){
+  corkhagg[upper.tri(corkhagg)] <- NA
+  return(corkhagg)
+}
+
+# Get upper triangle of the correlation matrix
+get_upper_tri_k <- function(corkhagg){
+  corkhagg[lower.tri(corkhagg)]<- NA
+  return(corkhagg)
+}
+
+upper_tri_k <- get_upper_tri_k(corkhagg)
+upper_tri_k
+
+# Melt the correlation matrix
+melted_corhagg_u_k <- melt(upper_tri_k, na.rm = TRUE)
+
+# Create a correlation Heat map
+ggplot(melted_corhagg_u_k, aes(Var2, Var1, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1))+
+  coord_fixed()+
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 3) +
+  labs(title = "Correlation Heat Map Of Health Variables In Kenya")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold")) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    axis.ticks = element_blank(),
+    legend.justification = c(1, 0),
+    legend.position = c(0.6, 0.7),
+    legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                               title.position = "top", title.hjust = 0.5))
+```
+
+# Key Insights
+-There is a higher average suicide rate in men than women both globally and also in Kenya.
+
+-Kenya has a higher average suicide rate for both genders compared to the global average as at 2019.
+
+-The average probability of death between the age of 30 to 70 from from any of cardiovascular disease, cancer, diabetes or chronic respiratory disease in Kenya has been decreasing since 2008 however an increase has been observed since 2016.
+
+-There has been a significant increase in the prevalence of alcohol and substance use disorder in Kenya, moreover, the prevalence in the country increases as the prevalence of anxiety disorders, eating disorders and schizophrenia increases according to the Kenyan correlation heat map.
+
+-As evident on the correlation heat map the prevalence various mental health issues have an impact on each other for example a significant increase in anxiety disorders increases with the prevalence of bipolar disorder and eating disorders globally with the same being observed in Kenya moreover, in Kenya it also increases with increase in the prevalence of schizophrenia and decreases with the decrease in depressive disorders.
+
+-The global probability of dying between age 30 and 70 from any of cardiovascular disease, cancer, diabetes or chronic respiratory disease has been falling significantly since the 2000s, however, its only been steadily decreasing in Kenya. Men are also at a higher risk of death from these diseases compared to women both globally and locally in Kenya. 
+
+-The probability of dying between age 30 and 70 from any of cardiovascular disease, cancer, diabetes or chronic respiratory disease in Kenya has been observed to be significantly inversely proportional to the prevalence of alcohol, substance use anxiety and eating disorders.
+
+-Suicide rates have been observed to not have a significant direct relationship with any mental health disorders both globally and locally however the most significant correlation is the probability of dying between age 30 and 70 from any of cardiovascular disease, cancer, diabetes or chronic respiratory disease in the global analysis.
+
+-Globally a significant inverse relationship between road traffic death rate and eating disorders has been observed however there is a slightly significant relationship between depressive disorders and road traffic death which should be an indicator for further research.
+
+-In Kenya, its been observed that road traffic deaths are inversely proportional to the probability of dying between age 30 and 70 from any of cardiovascular disease, cancer, diabetes or chronic respiratory disease but directly proportional to eating, anxiety, alcohol and substance use disorders.
+
+-Depressive disorders is the most significant variable that has an impact on suicide rates in Kenya therefore further study can look into the impact of depression on attempted and reported suicide cases and other factors that may influence suicide as it has been on the rise in Kenya.
+
+-Road traffic accidents have a significant impact of the mental health of several Kenyans.
+
+# Recommendations.
+-There should be more education regarding suicide prevention for NGOs.
+
+-Corporate firms should look into providing observed health insurance and mental health days off in addition to more sick days for the affected.
+
+-The government can implement policies and programs that provide more efficient facilities for the handling of observed health issues.
+
+-Insurance companies can restructure their products around the knowledge that mental health issues in Kenya have a significant direct relationship to each other and also that the prevalence of alcohol and substance use critically impacts the road traffic death rate in Kenya.
+
+-The government should critically look at the increase in the prevalence of alcohol and substance use disorder in Kenya and especially their impact on mental health and road safety.
+
+-Corporate entities can support any employee impacted by road accident death in order to reduce the risk decreased productivity as a result of emergence mental health issues in their employees.
+
+# Further Research.
+-There should be some research conducted looking into why the probability of death between the age of 30 to 70 from from any of cardiovascular disease, cancer, diabetes or chronic respiratory diseases in Kenya has been on the rise since 2016 while it has been decreasing globally.
+
+-The impact of depression on attempted and reported suicide cases and other factors that may influence suicide as it has been on the rise in Kenya.
+
+-Why men have a higher suicide rate compared to women and factors that led to higher suicide cases in Kenya compared to global cases.

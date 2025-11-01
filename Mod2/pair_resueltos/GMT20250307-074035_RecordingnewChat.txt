@@ -1,0 +1,2 @@
+00:42:48	Marianela Gómez:	El que ha dicho Diana yo lo hice así: SELECT city, COUNT(c1.customer_number)FROM customers AS c1GROUP BY c1.cityHAVING COUNT(c1.customer_number) >= ALL (	SELECT COUNT(c2.customer_number) AS clientes_por_ciudad	FROM customers AS c2	GROUP BY c2.city);
+00:44:31	diana p.:	Reacted to "El que ha dicho Dian..." with 👽

@@ -1,0 +1,90 @@
+# Ejercicio Intermedio - Creación de bases de datos
+
+En este ejercicio vamos a poner en práctica lo que hemos aprendido sobre la **creación de una base de datos** con sus tablas. También pondremos en práctica realizar las consultas a la base de datos y la inserción de datos desde Python.
+
+
+## 1. Crea una bases de datos en MySQL Workbench
+
+En MySQL Workbench:
+- Crea un SCHEMA llamado `videoclub`
+- En ese esquema crea diferentes tablas y dale a cada columna el tipo  de valor y restricciones que veas más lógicas:
+  - Una tabla llamada **películas** que tenga las columnas: `id_pelicula`, `nombre`, `duracion`, `direccion`, `id_genero`, 
+`fecha_estreno`. Una de las columnas es una `foreign key`, trátala 
+como tal. ¿Qué columna crees que debería ser la primary key?
+- Otra tabla llamada **géneros*** que tenga las columnas:  ``id_genero``, ``nombre_genero`` y ``descripción``.
+- Una tabla llamada **clientes** con: `id_cliente`,`nombre`, `apellido`,  `direccion`, `telefono`, `email`, `fecha_registro`
+- Una tabla llamada **alquileres** con `id_alquiler`, `id_cliente`,  `id_pelicula`, `fecha_alquiler`, `fecha_devolucion`, `estado` (que  puede ser solo “pendiente” o “devuelto”). Recuerda de dónde 
+vienen las primary key `id_cliente` y `id_pelicula` y cómo señalar  en esta tabla que son `foreign keys`.
+
+## 2. Modifica la base de datos
+
+¡Vaya! Nos hemos equivocado en varias cosas, vamos a tener que hacer 
+algunos cambios:
+
+- Modifica la columna email de la tabla **clientes**. Ahora queremos que tenga más capacidad de caracteres y que no acepte nulos.
+- Modifica la columna estado en la tabla **alquileres**. Queremos que siga aceptando solo los valores ‘pendiente’ y ‘devuelto’, pero que por  defecto el valor sea ‘pendiente’.
+
+## 3. Añade datos a la base de datos 
+
+Ahora añade los siguientes valores a las tablas. ¡¡IMPORTANTE!! Si hay  alguna columna señalada como `AUTO_INCREMENT` se rellenará sola y  no tenemos que pasarle datos.
+
+- Tabla **géneros**:
+  - ('Acción', 'Películas llenas de emoción y aventuras'),
+  - ('Comedia', 'Películas para reír y disfrutar'),
+  - ('Drama', 'Películas emocionales y profundas'),
+  - ('Ciencia Ficción', 'Películas con elementos futuristas o tecnológicos')
+
+- Tabla **películas**
+  - ('Misión Rescate', 130, 'Ridley Scott', 4, '2015-10-02'),
+  - ('La Gran Aventura', 120, 'Chris Columbus', 1, '2001-06-22'),
+  - ('Reír o Llorar', 95, 'John Smith', 2, '2020-11-12'),
+  - ('Crisis Total', 110, 'Jane Doe', 3, '2019-05-15')
+  - 
+- Tabla **clientes**
+  - ('Carlos', 'García', 'Av. Principal 123', '555-1234', 'carlos@example.com',  '2023-01-15'),
+  - ('Lucía', 'Pérez', 'Calle Secundaria 45', '555-5678', 'lucia@example.com',  '2023-02-20'), ('Miguel', 'Lopez', 'Av. Tercera 789', '555-9876', 'miguel@example.com', '2023-03-10')
+
+- Tabla **alquileres**
+  - (1, 1, '2025-01-01', NULL, 'pendiente'),
+  - (2, 2, '2025-01-03', '2025-01-07', 'devuelto'),
+  - (3, 4, '2025-01-05', NULL, 'pendiente');
+
+## 4. Modificaciones y consultas
+- El cliente Carlos García ha cambiado de correo a `carlos_garcia@example.com`
+- La clienta Lucía Pérez ya no quiere aparecer en nuestros 
+registros.
+- En la tabla géneros, queremos cambiar el nombre de la 
+columna `nombre_genero` a `genero`.
+- Haz las siguientes consultas en nuestra base de datos:
+  - Muestra todos los datos de películas
+  - Muestra solo el nombre y la duración de películas
+  - Muestra los valores de películas donde el `id_genero` sea 4
+  - Muestra los clientes que se llamen ‘Carlos’
+  - Muestra todas las películas ordenadas por fecha de estreno en orden ascendente y luego descendente
+  - Muestra los clientes ordenados por fecha de registro en orden 
+descendente y ascendente
+  - Muestra solo los 2 primeros registros de películas
+  - Muestra las películas que tengan como duración entre 90 y 
+120 minutos
+  - Obtén las películas que tengan una duración de más de 100 
+minutos o que su `id_genero` sea 1
+  - Obtén los alquileres cuya `fecha_devolucion` no sea nula
+  - Muestra los géneros distintos de la columna géneros
+
+
+## 5. BONUS: Insertar valores desde Python
+
+En este ejercicio vamos a insertar valores desde Python en la base de datos. Para ello os proporcionamos un fichero `csv` que contiene información sobre clientes. Para leer este fichero utiliza Pandas y almacenar la información en un DataFrame. Este DataFrame luego lo puedes convertir en una lista para insertar los valores en la tabla **clientes**.
+
+Una vez que tengas toda la información del fichero `clientes.csv`, vamos a insertarla en la tabla **clientes** de la base de datos `videoclub`. Para ello, sigue los siguientes pasos:
+- Importamos `mysql.connector` y `pandas`
+- Nos conectamos al servidor de Mysql 
+- Creamos un cursor
+- Con el cursor seleccionamos la base de datos `videoclub`
+¡Recuerda! Cuando vamos a insertar varios valores usamos `executemany` y cuando estamos insertando o cambiando datos, tenemos que confirmar los cambios. 
+- Para comprobar que todo ha salido bien, hacemos otra consulta con 
+el mismo cursor y le pedimos que nos enseñe todos los registros de 
+la tabla **clientes**.
+- Cierra la conexión
+- Crea un **dataframe** con los resultados de esta última consulta. 
+- Imprime en pantalla los primeros 5 registros y después los últimos 5. 

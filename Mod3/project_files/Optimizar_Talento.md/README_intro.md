@@ -1,0 +1,7 @@
+Con el objetivo de reducir la rotación de empleados y mejorar la satisfacción en el trabajo, la empresa ABC Corporation, una consultora tecnológica con base en California nos solicita desarrollar un proyecto de análisis de datos. 
+
+Su proyecto más reciente se basa en la optimización de procesos de selección de personal, desarrollando una plataforma de selección inteligente de talento, llevando a cabo análisis automatizados de currículums y análisis de habilidades clave que permiten la clasificación de candidatos según su adaptación a los roles por cubrir. Además de ello, han creado un algoritmo de recomendación de los perfiles a los reclutadores.
+
+Conociendo esto, nuestro objetivo fue identificar factores clave que influyen en la satisfacción en el trabajo y, en última instancia, en la retención de empleados. Para ello, en este proyecto presentamos los resultados de un análisis exploratorio de datos junto a un análisis de los resultados para aportar soluciones estratégicas a ABC Corporation respecto a las causas de insatisfacción de los trabajadores. 
+
+A continuación, encontrará una descripción de las fases del proyecto, las tareas llevadas a cabo por el equipo de desarrollo, y, por último, un análisis lógico sobre la información manipulada con el fin de comprender las relaciones entre variables para llegar a unas conclusiones finales.
